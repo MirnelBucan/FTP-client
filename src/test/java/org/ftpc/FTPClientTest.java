@@ -10,7 +10,7 @@ import org.mockftpserver.fake.filesystem.UnixFakeFileSystem;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.net.URL;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -25,17 +25,25 @@ public class FTPClientTest {
   private final String HOME_DIR = "/";
   private final String SUB_DIR = "test";
   private final String SUB_DIR_FOR_REMOVAL = "for_remove";
+  String DOWNLOAD_DIR = "download";
 
 
   @BeforeAll
   public void setUp() {
 
-    String FILE_TEMPLATE = "/tmp%d.txt";
-    String CONTENT = "Hello world!";
+    final String FILE_TEMPLATE = "/tmp%d.txt";
+    final String CONTENT = "Hello world!";
 
-    ftpClient = new FTPClient();
-
-    ftpClient.makeDownloadDir();
+    ClassLoader classLoader = getClass().getClassLoader();
+    URL path = classLoader.getResource(DOWNLOAD_DIR);
+    if (path == null) {
+      path = classLoader.getResource(".");
+      File downLoadDir = new File(path.getPath() + "/" + DOWNLOAD_DIR);
+      DOWNLOAD_DIR = downLoadDir.getAbsolutePath();
+    } else {
+      DOWNLOAD_DIR = path.getPath();
+    }
+    ftpClient = new FTPClient(DOWNLOAD_DIR);
 
     fakeFtpServer = new FakeFtpServer();
     fakeFtpServer.addUserAccount(new UserAccount(USER, PASSWORD, HOME_DIR));
@@ -67,7 +75,7 @@ public class FTPClientTest {
 
   @BeforeEach
   public void newFTPClient() {
-    ftpClient = new FTPClient();
+    ftpClient = new FTPClient(DOWNLOAD_DIR);
     PORT = fakeFtpServer.getServerControlPort();
   }
 
@@ -104,7 +112,6 @@ public class FTPClientTest {
   @Test
   public void invalidUser() {
     final String INVALID_USER = "INVALID_USER";
-    System.out.println(PORT);
     Exception exception = Assertions.assertThrows(IOException.class, () -> {
       ftpClient.connect(HOST, PORT, INVALID_USER, PASSWORD);
     });
@@ -145,11 +152,12 @@ public class FTPClientTest {
       ClassLoader classLoader = getClass().getClassLoader();
       File file = new File(classLoader.getResource(TEST_FILE).getFile());
       ftpClient.upload(file);
-    } catch (NullPointerException ignored){
-      ignored.printStackTrace();
+    } catch (NullPointerException ignored) {
     }
-    System.out.println(fakeFtpServer.getFileSystem().listFiles("/"));
-//    Assertions.assertTrue(fakeFtpServer.getFileSystem().exists("/" + TEST_FILE));
+    Assertions.assertTrue(fakeFtpServer.getFileSystem().exists(
+      TEST_FILE.substring(TEST_FILE.indexOf("/"))
+      )
+    );
   }
 
   @Test
@@ -157,13 +165,9 @@ public class FTPClientTest {
 
     final String TEST_FILE = "tmp1.txt";
     final String TEST_FILE_INVALID = "randomFileName.txt";
-    final String TEST_FILE_DOWNLOAD = "download/tmp1.txt";
-
     ftpClient.connect(HOST, PORT, USER, PASSWORD);
-    ftpClient.download(TEST_FILE);
+    File checkFile = ftpClient.download(TEST_FILE);
 
-    ClassLoader classLoader = getClass().getClassLoader();
-    File checkFile = new File(classLoader.getResource(TEST_FILE_DOWNLOAD).getFile());
     Assertions.assertEquals(TEST_FILE, checkFile.getName());
 
     Exception exception = Assertions.assertThrows(IOException.class, () -> {
@@ -171,35 +175,30 @@ public class FTPClientTest {
 
     });
     Assertions.assertEquals(
-            String.format("550 [/%s] does not exist.", TEST_FILE_INVALID),
-            exception.getMessage());
+      String.format("550 [/%s] does not exist.", TEST_FILE_INVALID),
+      exception.getMessage());
   }
-
 
   @Test
   public void currentWorkingDir() throws IOException {
     ftpClient.connect(HOST, PORT, USER, PASSWORD);
-    String dir = ftpClient.currentWorkingDir();
-
+    String dir = ftpClient.getCurrentWorkingDir();
     Assertions.assertTrue(fakeFtpServer.getFileSystem().exists(dir));
-
   }
 
   @Test
   public void changeWorkingDir() throws IOException {
     final String INVALID_DIR = "invalid_dir";
-
     ftpClient.connect(HOST, PORT, USER, PASSWORD);
 
-    String dir = ftpClient.changeWorkingDir(SUB_DIR);
+    String dir = ftpClient.setWorkingDir(SUB_DIR);
     Assertions.assertEquals(HOME_DIR + SUB_DIR, dir);
 
-    dir = ftpClient.changeWorkingDir("..");
-
+    dir = ftpClient.setWorkingDir("..");
     Assertions.assertTrue(fakeFtpServer.getFileSystem().exists(dir));
 
     Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.changeWorkingDir(INVALID_DIR);
+      ftpClient.setWorkingDir(INVALID_DIR);
     });
 
     Assertions.assertEquals(String.format("550 [/%s] does not exist.", INVALID_DIR), exception.getMessage());
@@ -219,12 +218,10 @@ public class FTPClientTest {
     });
 
     Assertions.assertEquals(String.format("550 The path [/%s] already exists.", NEW_DIR), exception.getMessage());
-
   }
 
   @Test
   public void removeDir() throws IOException {
-    final String NEW_DIR = "new_dir";
     final String NON_EXISTING_DIR = "new_dir_none_existing";
 
     ftpClient.connect(HOST, PORT, USER, PASSWORD);

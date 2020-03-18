@@ -2,29 +2,21 @@ package org.ftpc;
 
 import java.io.*;
 import java.net.Socket;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class FTPClient {
-  private static final String DOWNLOAD_DIR = "download";
+  private String downloadPath;
   private Socket ftpClientSock;
   private BufferedReader ftpInputBuffer;
   private BufferedWriter ftpOutputBuffer;
 
-  public void makeDownloadDir(){
-    ClassLoader classLoader = getClass().getClassLoader();
-    URL path = classLoader.getResource(DOWNLOAD_DIR);
-    System.out.println(path);
-    if(path == null){
-      path = classLoader.getResource(".");
-      File downLoadDir = new File(path.getPath()+"/"+DOWNLOAD_DIR);
-      if(downLoadDir.mkdir()){
-        System.out.println("Created dir: "+ downLoadDir.getAbsolutePath());
-      } else {
-        System.out.println("Already exist"+ downLoadDir.getAbsolutePath());
-      }
-    }
+  FTPClient(){
+    downloadPath = setDownloadDir();
+  }
+  FTPClient(String downloadDirPath){
+    downloadPath = downloadDirPath;
   }
 
   public void connect(String host, int port, String user, String password) throws IOException {
@@ -70,7 +62,7 @@ public class FTPClient {
     ftpOutputBuffer.close();
   }
 
-  public List<String> listEntries(String folder) throws IOException {
+  public List<String> getListEntries(String folder) throws IOException {
     if (ftpClientSock == null) {
       throw new IOException("Client is not connected!");
     }
@@ -87,7 +79,7 @@ public class FTPClient {
     return handleList((String) ipAndPort.get("ip"), (int) ipAndPort.get("port"));
   }
 
-  public List<String> listEntriesNLST(String folder) throws IOException {
+  public List<String> getListEntriesNLST(String folder) throws IOException {
     if (ftpClientSock == null) {
       throw new IOException("Client is not connected!");
     }
@@ -107,8 +99,8 @@ public class FTPClient {
   }
 
   public void upload(File file) throws IOException {
-
-    BufferedInputStream inputFileStream = new BufferedInputStream(new FileInputStream(file));
+    FileInputStream fileIS = new FileInputStream(file);
+    BufferedInputStream inputFileStream = new BufferedInputStream(fileIS);
 
     send("PASV");
     String ftpResponse = readResponse();
@@ -146,47 +138,40 @@ public class FTPClient {
     }
   }
 
-  public void download(String fileName) throws IOException {
+  public File download(String fileName) throws IOException {
     send("PASV");
 
-    String ftpResponse = readResponse();
-    if (!ftpResponse.startsWith("227")) {
-      throw new IOException("Error: " + ftpResponse);
+    String addressResponse = readResponse();
+    if (!addressResponse.startsWith("227")) {
+      throw new IOException("Error: " + addressResponse);
     }
 
     send("RETR " + fileName);
-    ftpResponse = readResponse();
+    String ftpResponse = readResponse();
     if (!ftpResponse.startsWith("150")) {
       throw new IOException(ftpResponse);
     }
 
-    Map<String, Object> ipAndPort = extractIpPort(ftpResponse);
-    String downloadPath = getDownloadPath(fileName);
-
-    if (downloadPath == null) {
-      throw new IOException("Invalid path for download " + downloadPath);
-    }
+    Map<String, Object> ipAndPort = extractIpPort(addressResponse);
 
     Socket dataLink = new Socket((String) ipAndPort.get("ip"), (int) ipAndPort.get("port"));
     BufferedInputStream dataInputStream = new BufferedInputStream(dataLink.getInputStream());
     int bytesRead;
-    FileOutputStream outputFileStream = new FileOutputStream(downloadPath);
+    FileOutputStream outputFileStream = new FileOutputStream(downloadPath+"/"+fileName);
     byte[] buff = new byte[4096];
 
     while ((bytesRead = dataInputStream.read(buff)) != -1) {
       outputFileStream.write(buff, 0, bytesRead);
     }
-
     outputFileStream.flush();
     outputFileStream.close();
     dataInputStream.close();
     dataLink.close();
-
     ftpResponse = readResponse();
-    System.out.println(ftpResponse);
+    return new File(downloadPath+"/"+fileName);
   }
 
-  public String currentWorkingDir() throws IOException {
+  public String getCurrentWorkingDir() throws IOException {
     send("PWD");
     String ftpResponse = readResponse();
     int startIndex = ftpResponse.indexOf("\"");
@@ -194,7 +179,7 @@ public class FTPClient {
     return ftpResponse.substring(startIndex + 1, endIndex);
   }
 
-  public String changeWorkingDir(String newWorkingDir) throws IOException {
+  public String setWorkingDir(String newWorkingDir) throws IOException {
     send("CWD " + newWorkingDir);
     String ftpResponse = readResponse();
     if (!ftpResponse.startsWith("250")) {
@@ -231,7 +216,7 @@ public class FTPClient {
   private Map<String, Object> extractIpPort(String address) throws IOException {
     Map<String, Object> ipAndPort = new HashMap<>();
     int firstBracerIndex = address.indexOf('(');
-    int lastBracerIndex = address.indexOf(')', firstBracerIndex + 1);
+    int lastBracerIndex = address.indexOf(')');
 
     String dataLink = address.substring(firstBracerIndex + 1, lastBracerIndex);
     StringTokenizer tokenizer = new StringTokenizer(dataLink, ",");
@@ -278,16 +263,12 @@ public class FTPClient {
     ftpOutputBuffer.flush();
   }
 
-  private String getDownloadPath(String fileName) {
-    ClassLoader classLoader = getClass().getClassLoader();
-    try {
-      File downLoadDir = new File(classLoader.getResource(DOWNLOAD_DIR).getFile());
-      return String.format("%s/%s", downLoadDir, fileName);
-    } catch (NullPointerException e) {
-      System.out.println("HERE IT IS");
-      e.printStackTrace();
-      System.out.println(e.getMessage());
-      return null;
+  private String setDownloadDir() {
+    Path path = Paths.get(App.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParent();
+    File downloadDir = new File(path.toAbsolutePath()+"/download");
+    if (!downloadDir.isDirectory()) {
+      downloadDir.mkdir();
     }
+    return downloadDir.getAbsolutePath();
   }
 }
