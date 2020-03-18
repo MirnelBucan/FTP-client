@@ -157,6 +157,7 @@ public class FTPClient {
     Socket dataLink = new Socket((String) ipAndPort.get("ip"), (int) ipAndPort.get("port"));
     BufferedInputStream dataInputStream = new BufferedInputStream(dataLink.getInputStream());
     int bytesRead;
+
     FileOutputStream outputFileStream = new FileOutputStream(downloadPath+"/"+fileName);
     byte[] buff = new byte[4096];
 

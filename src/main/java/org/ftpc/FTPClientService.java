@@ -2,6 +2,8 @@ package org.ftpc;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -15,6 +17,7 @@ public class FTPClientService {
   private String user;
   private String password;
   private String currentWorkingDir;
+  private String downloadDir;
   private int port;
 
   public FTPClientService(String host, int port, String user, String password) {
@@ -23,19 +26,30 @@ public class FTPClientService {
     this.password = password;
     this.port = port;
     currentWorkingDir = "/";
+    downloadDir = null;
+
+  }
+
+  public void setDownloadDir(String dir){
+    downloadDir = dir;
+  }
+
+  public String getDownloadDir(){
+    return downloadDir;
   }
 
   public void pwd() {
     System.out.println("Working dir: " + currentWorkingDir);
   }
 
-  public void cwd(String dir) {
+  public String cwd(String dir) {
     FTPClient ftpClient = getFTPClient();
     try {
       currentWorkingDir = ftpClient.setWorkingDir(dir);
     } catch (IOException e) {
       System.err.println(e.getMessage());
     }
+    return currentWorkingDir;
   }
 
   public void listFiles(String dir) {
@@ -65,6 +79,8 @@ public class FTPClientService {
   }
 
   public void upload(List<String> filesPaths) {
+
+    System.out.println("Uploading...");
     List<Callable<Void>> tasks;
     AtomicLong totalFilesSize = new AtomicLong();
     AtomicLong totalDuration = new AtomicLong();
@@ -72,21 +88,22 @@ public class FTPClientService {
     tasks = filesPaths
       .stream()
       .map(filePath -> {
-        File file = new File(filePath);
+        Path path = Paths.get(filePath).toAbsolutePath().normalize();
+        File file = new File(path.toString());
         return (Callable<Void>) () -> {
           FTPClient ftpClient = getFTPClient();
           try {
-            long downloadStart = System.currentTimeMillis();
+            long uploadStart = System.currentTimeMillis();
             ftpClient.upload(file);
-            long downloadEnd = System.currentTimeMillis();
-            double downloadTime = ((downloadEnd - downloadStart) / 1000.0);
-            totalDuration.addAndGet((long) downloadTime);
+            long uploadEnd = System.currentTimeMillis();
+            double uploadTime = ((uploadEnd - uploadStart) / 1000.0);
+            totalDuration.addAndGet((long) uploadTime);
             totalFilesSize.addAndGet(file.length());
             System.out.println(
               String.format(
-                "-File name: %s\n-File size: %s\n-Duration: %.2f s\n-File path: %s\n",
+                "-File name: %s\n-File size: %s\n-Duration: %.2f s\n-Uploaded file path: %s\n",
                 file.getName(), getTotalFileSize(new AtomicLong(file.length()))
-                , downloadTime, file.getAbsolutePath()
+                , uploadTime, file.getAbsolutePath()
               )
             );
           } catch (IOException e) {
@@ -123,8 +140,9 @@ public class FTPClientService {
   }
 
   public void download(List<String> filesPaths) {
-    List<Callable<Void>> tasks;
+    System.out.println("Downloading...");
 
+    List<Callable<Void>> tasks;
     AtomicLong totalFilesSize = new AtomicLong();
     AtomicLong totalDuration = new AtomicLong();
     tasks = filesPaths
@@ -136,6 +154,8 @@ public class FTPClientService {
           try {
             long downloadStart = System.currentTimeMillis();
             File file = ftpClient.download(filePath);
+            System.out.println(file.getAbsolutePath());
+            System.out.println(file.exists());
             long downloadEnd = System.currentTimeMillis();
             double downloadTime = ((downloadEnd - downloadStart) / 1000.0);
             totalDuration.addAndGet((long) downloadTime);
@@ -143,7 +163,7 @@ public class FTPClientService {
 
             System.out.println(
               String.format(
-                "-File name: %s\n-File size: %s\n-Duration: %.2f s\n-File path: %s\n",
+                "-File name: %s\n-File size: %s\n-Duration: %.2f s\n-Downloaded file path: %s\n",
                 file.getName(), getTotalFileSize(new AtomicLong(file.length())),
                 downloadTime, file.getAbsolutePath()
               )
@@ -171,7 +191,7 @@ public class FTPClientService {
   }
 
   private FTPClient getFTPClient() {
-    FTPClient ftpc = new FTPClient();
+    FTPClient ftpc = downloadDir == null ? new FTPClient() : new FTPClient(downloadDir);
     try {
       ftpc.connect(host, port, user, password);
       ftpc.setWorkingDir(currentWorkingDir);

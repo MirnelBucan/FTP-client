@@ -39,6 +39,9 @@ public class FTPClientTest {
     if (path == null) {
       path = classLoader.getResource(".");
       File downLoadDir = new File(path.getPath() + "/" + DOWNLOAD_DIR);
+      if( !downLoadDir.exists()){
+        downLoadDir.mkdir();
+      }
       DOWNLOAD_DIR = downLoadDir.getAbsolutePath();
     } else {
       DOWNLOAD_DIR = path.getPath();
