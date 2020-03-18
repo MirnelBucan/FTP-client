@@ -10,23 +10,13 @@ import org.mockftpserver.fake.filesystem.UnixFakeFileSystem;
 
 import java.io.File;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FTPClientServiceTest {
   private FakeFtpServer fakeFtpServer;
   private FTPClientService ftpClientService;
-  private int PORT;
-  private final String USER = "admin";
-  private final String PASSWORD = "test";
-  private final String HOST = "localhost";
-  private final String HOME_DIR = "/";
-  private final String SUB_DIR = "test";
   String DOWNLOAD_DIR = "download";
 
 
@@ -36,6 +26,9 @@ class FTPClientServiceTest {
     final String CONTENT = "Hello world!";
 
     fakeFtpServer = new FakeFtpServer();
+    String HOME_DIR = "/";
+    String PASSWORD = "test";
+    String USER = "admin";
     fakeFtpServer.addUserAccount(new UserAccount(USER, PASSWORD, HOME_DIR));
 
     FileSystem fileSystem = new UnixFakeFileSystem();
@@ -46,6 +39,7 @@ class FTPClientServiceTest {
     fileSystem.add(new FileEntry(String.format(FILE_TEMPLATE, 3), CONTENT));
     fileSystem.add(new FileEntry(String.format(FILE_TEMPLATE, 4), CONTENT));
 
+    String SUB_DIR = "test";
     fileSystem.add(new DirectoryEntry(HOME_DIR + SUB_DIR));
     fileSystem.add(new FileEntry(HOME_DIR + SUB_DIR + String.format(FILE_TEMPLATE, 1), CONTENT));
     fileSystem.add(new FileEntry(HOME_DIR + SUB_DIR + String.format(FILE_TEMPLATE, 2), CONTENT));
@@ -67,6 +61,7 @@ class FTPClientServiceTest {
     } else {
       DOWNLOAD_DIR = path.getPath();
     }
+    String HOST = "localhost";
     ftpClientService = new FTPClientService(HOST, fakeFtpServer.getServerControlPort(), USER, PASSWORD);
     ftpClientService.setDownloadDir(DOWNLOAD_DIR);
   }
@@ -82,7 +77,7 @@ class FTPClientServiceTest {
     ClassLoader classLoader = getClass().getClassLoader();
     String file = "";
     String[] files = new String[]{"/test_file.txt", "/test_file1.txt", "/test_file2.txt"};
-    List<String> testFiles = new LinkedList<String>();
+    List<String> testFiles = new LinkedList<>();
 
     for (String name : files) {
       file = new File(classLoader.getResource("upload" + name).getFile()).getAbsolutePath();

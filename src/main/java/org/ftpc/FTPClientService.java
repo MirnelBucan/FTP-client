@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -27,7 +26,7 @@ public class FTPClientService {
     this.port = port;
     currentWorkingDir = "/";
     downloadDir = null;
-
+    System.out.println(this.host +" "+this.user +" "+this.password +" "+this.port );
   }
 
   public void setDownloadDir(String dir){
@@ -147,34 +146,32 @@ public class FTPClientService {
     AtomicLong totalDuration = new AtomicLong();
     tasks = filesPaths
       .stream()
-      .map(filePath -> {
-        return (Callable<Void>) () -> {
-          FTPClient ftpClient = getFTPClient();
+      .map(filePath -> (Callable<Void>) () -> {
+        FTPClient ftpClient = getFTPClient();
 
-          try {
-            long downloadStart = System.currentTimeMillis();
-            File file = ftpClient.download(filePath);
-            System.out.println(file.getAbsolutePath());
-            System.out.println(file.exists());
-            long downloadEnd = System.currentTimeMillis();
-            double downloadTime = ((downloadEnd - downloadStart) / 1000.0);
-            totalDuration.addAndGet((long) downloadTime);
-            totalFilesSize.addAndGet(file.length());
+        try {
+          long downloadStart = System.currentTimeMillis();
+          File file = ftpClient.download(filePath);
+          System.out.println(file.getAbsolutePath());
+          System.out.println(file.exists());
+          long downloadEnd = System.currentTimeMillis();
+          double downloadTime = ((downloadEnd - downloadStart) / 1000.0);
+          totalDuration.addAndGet((long) downloadTime);
+          totalFilesSize.addAndGet(file.length());
 
-            System.out.println(
-              String.format(
-                "-File name: %s\n-File size: %s\n-Duration: %.2f s\n-Downloaded file path: %s\n",
-                file.getName(), getTotalFileSize(new AtomicLong(file.length())),
-                downloadTime, file.getAbsolutePath()
-              )
-            );
-          } catch (IOException e) {
-            e.printStackTrace();
-            System.err.println(e.getMessage());
-          }
+          System.out.println(
+            String.format(
+              "-File name: %s\n-File size: %s\n-Duration: %.2f s\n-Downloaded file path: %s\n",
+              file.getName(), getTotalFileSize(new AtomicLong(file.length())),
+              downloadTime, file.getAbsolutePath()
+            )
+          );
+        } catch (IOException e) {
+          e.printStackTrace();
+          System.err.println(e.getMessage());
+        }
 
-          return null;
-        };
+        return null;
       }).collect(Collectors.toList());
 
     ExecutorService threadPool = Executors.newFixedThreadPool(filesPaths.size());

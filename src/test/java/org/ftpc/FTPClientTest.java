@@ -96,9 +96,7 @@ public class FTPClientTest {
   public void invalidHost() {
     final String INVALID_HOST = "some random host";
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.connect(INVALID_HOST, PORT, USER, PASSWORD);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.connect(INVALID_HOST, PORT, USER, PASSWORD));
     Assertions.assertEquals(INVALID_HOST, exception.getMessage());
   }
 
@@ -106,18 +104,14 @@ public class FTPClientTest {
   public void invalidPort() {
     final int INVALID_PORT = 123;
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.connect(HOST, INVALID_PORT, USER, PASSWORD);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.connect(HOST, INVALID_PORT, USER, PASSWORD));
     Assertions.assertEquals("Connection refused (Connection refused)", exception.getMessage());
   }
 
   @Test
   public void invalidUser() {
     final String INVALID_USER = "INVALID_USER";
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.connect(HOST, PORT, INVALID_USER, PASSWORD);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.connect(HOST, PORT, INVALID_USER, PASSWORD));
     Assertions.assertEquals("530 UserAccount missing or invalid for user [" + INVALID_USER + "]", exception.getMessage());
   }
 
@@ -125,9 +119,7 @@ public class FTPClientTest {
   public void invalidPassword() {
     final String INVALID_PASSWORD = "INVALID_PASS";
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.connect(HOST, PORT, USER, INVALID_PASSWORD);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.connect(HOST, PORT, USER, INVALID_PASSWORD));
     Assertions.assertEquals("530 Not logged in.", exception.getMessage());
   }
 
@@ -138,9 +130,7 @@ public class FTPClientTest {
 
     Assertions.assertTrue(ftpClient.isConnected());
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.disconnect();
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.disconnect());
 
     Assertions.assertEquals("Client already disconnected!", exception.getMessage());
 
@@ -173,10 +163,7 @@ public class FTPClientTest {
 
     Assertions.assertEquals(TEST_FILE, checkFile.getName());
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.download(TEST_FILE_INVALID);
-
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.download(TEST_FILE_INVALID));
     Assertions.assertEquals(
       String.format("550 [/%s] does not exist.", TEST_FILE_INVALID),
       exception.getMessage());
@@ -200,9 +187,7 @@ public class FTPClientTest {
     dir = ftpClient.setWorkingDir("..");
     Assertions.assertTrue(fakeFtpServer.getFileSystem().exists(dir));
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.setWorkingDir(INVALID_DIR);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.setWorkingDir(INVALID_DIR));
 
     Assertions.assertEquals(String.format("550 [/%s] does not exist.", INVALID_DIR), exception.getMessage());
   }
@@ -216,9 +201,7 @@ public class FTPClientTest {
     String dir = ftpClient.makeDirectory(NEW_DIR);
     Assertions.assertTrue(fakeFtpServer.getFileSystem().exists(dir));
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.makeDirectory(NEW_DIR);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.makeDirectory(NEW_DIR));
 
     Assertions.assertEquals(String.format("550 The path [/%s] already exists.", NEW_DIR), exception.getMessage());
   }
@@ -232,15 +215,11 @@ public class FTPClientTest {
     String dir = ftpClient.removeDirectory(SUB_DIR_FOR_REMOVAL);
     Assertions.assertFalse(fakeFtpServer.getFileSystem().exists(dir));
 
-    Exception exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.removeDirectory(SUB_DIR);
-    });
+    Exception exception = Assertions.assertThrows(IOException.class, () -> ftpClient.removeDirectory(SUB_DIR));
 
     Assertions.assertEquals(String.format("550 The [/%s] directory is not empty.", SUB_DIR), exception.getMessage());
 
-    exception = Assertions.assertThrows(IOException.class, () -> {
-      ftpClient.removeDirectory(NON_EXISTING_DIR);
-    });
+    exception = Assertions.assertThrows(IOException.class, () -> ftpClient.removeDirectory(NON_EXISTING_DIR));
 
     Assertions.assertEquals(String.format("550 [/%s] does not exist.", NON_EXISTING_DIR), exception.getMessage());
   }
